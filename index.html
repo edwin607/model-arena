@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f0f10">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ModelArena</title>
+<style>
+  :root{
+    --bg:#0f0f10; --panel:#17171a; --panel2:#1e1e22; --border:#2a2a30;
+    --text:#e8e8ea; --dim:#9a9aa3; --accent:#c9a227; --win:#3fb27f; --lose:#e06c60;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--text);
+    font:14px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  #app{display:flex;flex-direction:column;height:100dvh}
+  button{background:var(--panel2);color:var(--text);border:1px solid var(--border);
+    border-radius:8px;padding:7px 11px;cursor:pointer;font-size:13px}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#111;border-color:var(--accent);font-weight:600}
+  button:disabled{opacity:.45;cursor:default}
+  /* top bar */
+  #topbar{display:flex;align-items:center;gap:8px;padding:10px 14px;
+    border-bottom:1px solid var(--border);background:var(--panel);flex-wrap:wrap}
+  #topbar .brand{font-weight:700;letter-spacing:.04em}
+  #topbar .brand span{color:var(--accent)}
+  #round{font-size:12px;color:var(--dim)}
+  /* model picker */
+  #picker{border-bottom:1px solid var(--border);background:var(--panel);padding:8px 14px;
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  #picker input[type=text]{background:var(--panel2);border:1px solid var(--border);border-radius:8px;
+    color:var(--text);padding:7px 10px;font-size:13px;width:220px;outline:none}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);
+    border:1px solid var(--border);border-radius:99px;padding:4px 6px 4px 11px;font-size:12px;cursor:pointer;user-select:none}
+  .chip.on{border-color:var(--accent);background:#26210f}
+  .chip .cost{color:var(--dim);font-size:11px}
+  .chip.on .cost{color:var(--accent)}
+  #dropWrap{position:relative}
+  #dropdown{position:absolute;top:36px;left:0;z-index:20;width:380px;max-height:50dvh;overflow-y:auto;
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;display:none;box-shadow:0 12px 40px #000a}
+  #dropdown.open{display:block}
+  .mrow{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;cursor:pointer;font-size:13px}
+  .mrow:hover{background:var(--panel2)}
+  .mrow .p{color:var(--dim);font-size:11px;white-space:nowrap}
+  /* arena */
+  #arena{flex:1;display:flex;overflow-x:auto;overflow-y:hidden}
+  .lane{flex:1;min-width:300px;max-width:560px;border-right:1px solid var(--border);
+    display:flex;flex-direction:column}
+  .lane:last-child{border-right:none}
+  .lane-head{padding:10px 12px;border-bottom:1px solid var(--border);background:var(--panel)}
+  .lane-head .mname{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lane-head .stats{display:flex;gap:10px;font-size:11px;color:var(--dim);margin-top:3px;flex-wrap:wrap}
+  .lane-head .stats b{color:var(--accent);font-weight:600}
+  .lane-body{flex:1;overflow-y:auto;padding:12px;white-space:pre-wrap;word-wrap:break-word;font-size:14px}
+  .lane-body.placeholder{color:var(--dim);font-style:italic}
+  .lane-foot{padding:8px 12px;border-top:1px solid var(--border);background:var(--panel);
+    display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .stars button{background:none;border:none;font-size:19px;cursor:pointer;color:var(--dim);padding:0 1px}
+  .stars button.lit{color:var(--accent)}
+  .winbtn.won{background:var(--win);border-color:var(--win);color:#06130c;font-weight:700}
+  .lane.error .lane-body{color:var(--lose)}
+  /* composer */
+  #composer{padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    border-top:1px solid var(--border);background:var(--panel)}
+  #sysRow{display:flex;gap:8px;margin-bottom:8px}
+  #sysInput{flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:9px;
+    color:var(--dim);padding:7px 10px;font-size:12px;outline:none}
+  #promptRow{display:flex;gap:8px}
+  #prompt{flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:12px;
+    color:var(--text);padding:11px 13px;resize:none;max-height:130px;font:inherit;outline:none}
+  #prompt:focus{border-color:var(--accent)}
+  /* leaderboard modal */
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;padding:14px;z-index:30}
+  #modal.open{display:flex}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;width:100%;
+    max-width:640px;max-height:88dvh;overflow-y:auto;padding:20px}
+  .card h3{margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{padding:7px 8px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left;max-width:200px;overflow:hidden;text-overflow:ellipsis}
+  th{color:var(--dim);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;color:var(--dim);margin-bottom:4px}
+  .field input{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:9px;
+    color:var(--text);padding:9px 10px;font:inherit;outline:none}
+  .row{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+  .pill{font-size:10px;padding:1px 7px;border-radius:99px;border:1px solid var(--border);color:var(--dim)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <div class="brand">Model<span>Arena</span></div>
+    <div id="round"></div>
+    <div style="flex:1"></div>
+    <button onclick="openBoard()">🏆 Leaderboard</button>
+    <button onclick="openSettings()">⚙ Key</button>
+  </div>
+
+  <div id="picker">
+    <div id="dropWrap">
+      <input type="text" id="search" placeholder="Add models… (click, type to filter)">
+      <div id="dropdown"></div>
+    </div>
+    <div id="chips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+  </div>
+
+  <div id="arena"><div class="empty" style="margin:auto;color:var(--dim)">Pick 2–4 models above, then send a prompt.</div></div>
+
+  <div id="composer">
+    <div id="sysRow"><input id="sysInput" placeholder="System prompt (optional, applies to all lanes)"></div>
+    <div id="promptRow">
+      <textarea id="prompt" rows="1" placeholder="One prompt → every selected model. Enter to send."></textarea>
+      <button id="goBtn" class="primary" onclick="run()">Run ⚡</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal"><div class="card" id="modalCard"></div></div>
+
+<script>
+'use strict';
+/* ---------- PWA ---------- */
+const ICON = sz=>'data:image/svg+xml,'+encodeURIComponent(
+ `<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${sz}"><rect width="${sz}" height="${sz}" rx="${sz*.2}" fill="#0f0f10"/><text x="50%" y="56%" font-size="${sz*.55}" text-anchor="middle" dominant-baseline="middle">⚔️</text></svg>`);
+const man={name:"ModelArena",short_name:"Arena",start_url:location.href,display:"standalone",
+ background_color:"#0f0f10",theme_color:"#0f0f10",
+ icons:[{src:ICON(192),sizes:"192x192",type:"image/svg+xml"},{src:ICON(512),sizes:"512x512",type:"image/svg+xml"}]};
+const ml=document.createElement('link');ml.rel='manifest';
+ml.href=URL.createObjectURL(new Blob([JSON.stringify(man)],{type:'application/json'}));
+document.head.appendChild(ml);
+if('serviceWorker' in navigator){
+ const sw=`const C='ma-v1';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.add('${location.href}')));self.skipWaiting()});self.addEventListener('activate',e=>e.waitUntil(clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).then(r=>{const cp=r.clone();caches.open(C).then(c=>c.put(e.request,cp));return r}).catch(()=>caches.match(e.request))))`;
+ navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'text/javascript'}))).catch(()=>{});
+}
+
+/* ---------- State ---------- */
+const LS='modelArena.';
+const S={
+  key:localStorage.getItem(LS+'key')||'',
+  sys:localStorage.getItem(LS+'sys')||'',
+  selected:JSON.parse(localStorage.getItem(LS+'sel')||'[]'),
+  board:JSON.parse(localStorage.getItem(LS+'board')||'{}'),  // modelId -> {rounds,wins,stars,starN,cost,ptok,ctok,ms}
+  models:[]
+};
+const persist=()=>{
+  localStorage.setItem(LS+'key',S.key);
+  localStorage.setItem(LS+'sys',S.sys);
+  localStorage.setItem(LS+'sel',JSON.stringify(S.selected));
+  localStorage.setItem(LS+'board',JSON.stringify(S.board));
+};
+document.getElementById('sysInput').value=S.sys;
+document.getElementById('sysInput').onchange=e=>{S.sys=e.target.value;persist()};
+
+const OR='https://openrouter.ai/api/v1';
+const H=()=>({'Content-Type':'application/json','Authorization':'Bearer '+S.key,
+  'HTTP-Referer':location.href,'X-Title':'ModelArena'});
+const fmt$=v=>v<0.0001?'$'+(v*1e6).toFixed(1)+'/M':'$'+v.toFixed(5);
+function priceLabel(m){ // per 1M tokens
+  const p=+m.pricing?.prompt||0,c=+m.pricing?.completion||0;
+  return `$${(p*1e6).toFixed(2)}/$${(c*1e6).toFixed(2)} per Mtok`;
+}
+
+/* ---------- Model catalog ---------- */
+async function loadModels(){
+  try{
+    const r=await fetch(OR+'/models',{headers:H()});
+    const d=await r.json();
+    S.models=d.data.filter(m=>m.pricing).sort((a,b)=>a.id.localeCompare(b.id));
+  }catch(e){ console.warn(e); }
+  renderChips();
+}
+const searchEl=document.getElementById('search'), drop=document.getElementById('dropdown');
+searchEl.addEventListener('focus',()=>{renderDrop();drop.classList.add('open')});
+searchEl.addEventListener('input',renderDrop);
+document.addEventListener('click',e=>{if(!e.target.closest('#dropWrap'))drop.classList.remove('open')});
+function renderDrop(){
+  const q=searchEl.value.toLowerCase();
+  const list=S.models.filter(m=>m.id.toLowerCase().includes(q)).slice(0,60);
+  drop.innerHTML=list.length?'':'<div class="mrow">No catalog — set your API key first (⚙).</div>';
+  list.forEach(m=>{
+    const d=document.createElement('div');d.className='mrow';
+    d.innerHTML=`<span>${m.id}</span><span class="p">${priceLabel(m)}</span>`;
+    d.onmousedown=()=>{toggleModel(m.id,true);searchEl.value='';drop.classList.remove('open')};
+    drop.appendChild(d);
+  });
+}
+function toggleModel(id,add){
+  if(add){ if(!S.selected.includes(id)&&S.selected.length<4)S.selected.push(id); }
+  else S.selected=S.selected.filter(x=>x!==id);
+  persist();renderChips();renderArena();
+}
+function renderChips(){
+  const el=document.getElementById('chips');el.innerHTML='';
+  S.selected.forEach(id=>{
+    const m=S.models.find(x=>x.id===id);
+    const c=document.createElement('div');c.className='chip on';
+    c.innerHTML=`${id} <span class="cost">${m?priceLabel(m):''}</span> ✕`;
+    c.onclick=()=>toggleModel(id,false);
+    el.appendChild(c);
+  });
+}
+
+/* ---------- Arena ---------- */
+let roundNo=+(localStorage.getItem(LS+'round')||0);
+let busy=false;
+function renderArena(){
+  const a=document.getElementById('arena');a.innerHTML='';
+  document.getElementById('round').textContent=roundNo?`round ${roundNo}`:'';
+  if(!S.selected.length){a.innerHTML='<div class="empty" style="margin:auto;color:var(--dim)">Pick 2–4 models above, then send a prompt.</div>';return}
+  S.selected.forEach(id=>{
+    const lane=document.createElement('div');lane.className='lane';lane.dataset.model=id;
+    lane.innerHTML=`<div class="lane-head"><div class="mname">${id}</div>
+      <div class="stats"><span class="st-cost"></span><span class="st-tok"></span><span class="st-time"></span></div></div>
+      <div class="lane-body placeholder">waiting…</div>
+      <div class="lane-foot">
+        <span class="stars" title="Rate this response">${[1,2,3,4,5].map(i=>`<button data-i="${i}">★</button>`).join('')}</span>
+        <button class="winbtn">🏆 winner</button>
+      </div>`;
+    a.appendChild(lane);
+    lane.querySelectorAll('.stars button').forEach(b=>b.onclick=()=>rate(id,+b.dataset.i));
+    lane.querySelector('.winbtn').onclick=e=>{
+      e.target.classList.toggle('won');
+      bump(id,'wins',e.target.classList.contains('won')?1:-0); // wins only accrue once per response; toggling off keeps record
+      if(e.target.classList.contains('won'))e.target.disabled=true;
+    };
+  });
+}
+function laneEl(id){return document.querySelector(`.lane[data-model="${CSS.escape(id)}"]`)}
+function rate(id,n){
+  const lane=laneEl(id);
+  lane.querySelectorAll('.stars button').forEach((b,idx)=>b.classList.toggle('lit',idx<n));
+  bump(id,'stars',n);bump(id,'starN',1);
+  lane.querySelectorAll('.stars button').forEach(b=>b.disabled=true);
+}
+function bump(id,k,v){
+  const b=S.board[id]=S.board[id]||{rounds:0,wins:0,stars:0,starN:0,cost:0,ptok:0,ctok:0,ms:0};
+  b[k]=(b[k]||0)+v;persist();
+}
+
+/* ---------- Run a round ---------- */
+async function run(){
+  if(busy)return;
+  const pEl=document.getElementById('prompt'), prompt=pEl.value.trim();
+  if(!prompt||!S.selected.length)return;
+  if(!S.key){openSettings();return}
+  busy=true;document.getElementById('goBtn').disabled=true;
+  pEl.value='';pEl.style.height='auto';
+  renderArena();
+  const sys=S.sys.trim();
+  const msgs=[...(sys?[{role:'system',content:sys}]:[]),{role:'user',content:prompt}];
+  await Promise.all(S.selected.map(id=>runLane(id,msgs)));
+  roundNo++;localStorage.setItem(LS+'round',roundNo);
+  document.getElementById('round').textContent=`round ${roundNo} — rate & pick winners, then send the next prompt`;
+  busy=false;document.getElementById('goBtn').disabled=false;
+}
+async function runLane(id,msgs){
+  const lane=laneEl(id), body=lane.querySelector('.lane-body');
+  body.classList.remove('placeholder');body.textContent='';
+  const t0=performance.now();let text='',usage=null,ttft=null;
+  try{
+    const r=await fetch(OR+'/chat/completions',{method:'POST',headers:H(),
+      body:JSON.stringify({model:id,messages:msgs,stream:true,usage:{include:true}})});
+    if(!r.ok)throw new Error((await r.text()).slice(0,300));
+    const rd=r.body.getReader(),dec=new TextDecoder();let buf='';
+    for(;;){
+      const{done,value}=await rd.read();if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      const lines=buf.split('\n');buf=lines.pop();
+      for(const ln of lines){
+        if(!ln.startsWith('data:'))continue;
+        const p=ln.slice(5).trim();if(p==='[DONE]')continue;
+        try{
+          const j=JSON.parse(p);
+          const delta=j.choices?.[0]?.delta?.content||'';
+          if(delta&&ttft===null)ttft=performance.now()-t0;
+          text+=delta;
+          if(j.usage)usage=j.usage;
+          body.textContent=text;
+          body.scrollTop=body.scrollHeight;
+        }catch(_){}
+      }
+    }
+  }catch(e){lane.classList.add('error');body.textContent='⚠ '+e.message;return}
+  const ms=performance.now()-t0;
+  const m=S.models.find(x=>x.id===id);
+  const pt=usage?.prompt_tokens??Math.ceil(JSON.stringify(msgs).length/4);
+  const ct=usage?.completion_tokens??Math.ceil(text.length/4);
+  const cost=pt*(+m?.pricing?.prompt||0)+ct*(+m?.pricing?.completion||0);
+  lane.querySelector('.st-cost').innerHTML=`<b>${fmt$(cost)}</b>${usage?'':' <span class="pill">est</span>'}`;
+  lane.querySelector('.st-tok').textContent=`${pt}→${ct} tok`;
+  lane.querySelector('.st-time').textContent=`${(ms/1000).toFixed(1)}s${ttft?` · ttft ${(ttft/1000).toFixed(1)}s`:''}`;
+  const b=S.board[id]=S.board[id]||{rounds:0,wins:0,stars:0,starN:0,cost:0,ptok:0,ctok:0,ms:0};
+  b.rounds++;b.cost+=cost;b.ptok+=pt;b.ctok+=ct;b.ms+=ms;persist();
+}
+
+/* ---------- Leaderboard & settings ---------- */
+const modal=document.getElementById('modal'),card=document.getElementById('modalCard');
+modal.onclick=e=>{if(e.target===modal)modal.classList.remove('open')};
+function openBoard(){
+  const rows=Object.entries(S.board).sort((a,b)=>{
+    const qa=a[1].starN?a[1].stars/a[1].starN:0,qb=b[1].starN?b[1].stars/b[1].starN:0;
+    return (qb-qa)||(b[1].wins-a[1].wins)});
+  card.innerHTML=`<h3>🏆 Leaderboard — quality vs. real cost</h3>
+    <table><tr><th>Model</th><th>Rounds</th><th>Wins</th><th>Avg ★</th><th>Total cost</th><th>Tok out</th><th>Avg s</th><th>$/round</th></tr>
+    ${rows.map(([id,b])=>`<tr><td title="${id}">${id}</td><td>${b.rounds}</td><td>${b.wins}</td>
+      <td>${b.starN?(b.stars/b.starN).toFixed(1):'—'}</td>
+      <td>$${b.cost.toFixed(4)}</td><td>${b.ctok}</td>
+      <td>${b.rounds?(b.ms/b.rounds/1000).toFixed(1):'—'}</td>
+      <td>${b.rounds?'$'+(b.cost/b.rounds).toFixed(5):'—'}</td></tr>`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--dim)">No rounds yet.</td></tr>'}
+    </table>
+    <div class="row"><button onclick="if(confirm('Reset all stats?')){S.board={};roundNo=0;persist();localStorage.setItem(LS+'round',0);openBoard()}">Reset stats</button>
+    <button class="primary" onclick="modal.classList.remove('open')">Close</button></div>`;
+  modal.classList.add('open');
+}
+function openSettings(){
+  card.innerHTML=`<h3>OpenRouter API key</h3>
+    <div class="field"><label>Key (<a href="https://openrouter.ai/keys" target="_blank" style="color:var(--accent)">openrouter.ai/keys</a>) — costs bill to your OpenRouter account</label>
+    <input type="password" id="k" value="${S.key.replace(/"/g,'&quot;')}" placeholder="sk-or-…"></div>
+    <div class="row"><button onclick="modal.classList.remove('open')">Cancel</button>
+    <button class="primary" onclick="S.key=document.getElementById('k').value.trim();persist();modal.classList.remove('open');loadModels()">Save</button></div>`;
+  modal.classList.add('open');
+}
+
+/* ---------- Input ---------- */
+const pEl=document.getElementById('prompt');
+pEl.addEventListener('input',()=>{pEl.style.height='auto';pEl.style.height=Math.min(pEl.scrollHeight,130)+'px'});
+pEl.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();run()}});
+
+loadModels().then(()=>{if(!S.key&&!S.models.length)openSettings()});
+renderChips();renderArena();
+</script>
+</body>
+</html>
